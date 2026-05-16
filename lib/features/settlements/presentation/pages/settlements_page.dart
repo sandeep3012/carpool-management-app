@@ -224,6 +224,11 @@ class _SectionHeader extends StatelessWidget {
 }
 
 // ── Horizontal balance row ────────────────────────────────────────────────────
+//
+// Uses SingleChildScrollView + IntrinsicHeight + Row so the row height is
+// driven entirely by card content — no hardcoded height, no clipping.
+// IntrinsicHeight forces all cards in the Row to match the tallest card,
+// which is itself sized by the card's Column(mainAxisSize: MainAxisSize.min).
 
 class _HorizontalBalanceRow extends StatelessWidget {
   const _HorizontalBalanceRow({required this.balances});
@@ -231,15 +236,22 @@ class _HorizontalBalanceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 130,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: balances.length,
-        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
-        itemBuilder: (context, i) => SizedBox(
-          width: 88,
-          child: MemberBalanceCard(balance: balances[i]),
+    final cardWidth = BalanceCardMetrics.preferredWidth(context);
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (int i = 0; i < balances.length; i++) ...[
+              if (i > 0) const SizedBox(width: AppSpacing.sm),
+              SizedBox(
+                width: cardWidth,
+                child: MemberBalanceCard(balance: balances[i]),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -304,18 +316,32 @@ class _StatChip extends StatelessWidget {
         color: theme.colorScheme.surfaceContainerHighest.withAlpha(80),
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
       ),
+      // IntrinsicHeight lets the chip grow naturally without a fixed height.
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 20,
-              color: theme.colorScheme.primary),
+          Icon(icon, size: 20, color: theme.colorScheme.primary),
           const SizedBox(height: AppSpacing.xs),
-          Text(value,
+          // FittedBox prevents wide values (e.g. "₹3,820") from overflowing
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
               style: theme.textTheme.titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w700)),
-          Text(label,
+                  ?.copyWith(fontWeight: FontWeight.w700),
+              maxLines: 1,
+            ),
+          ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
               style: theme.textTheme.labelSmall?.copyWith(
-                  color:
-                      theme.colorScheme.onSurface.withAlpha(140))),
+                color: theme.colorScheme.onSurface.withAlpha(140),
+              ),
+              maxLines: 1,
+            ),
+          ),
         ],
       ),
     );

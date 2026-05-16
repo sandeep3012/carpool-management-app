@@ -242,6 +242,12 @@ class _HeaderCard extends StatelessWidget {
 }
 
 // ── Balances grid ─────────────────────────────────────────────────────────────
+//
+// Responsive design decisions:
+//   • Uses Wrap so cards self-size to their content — no hardcoded heights.
+//   • Card width is derived from BalanceCardMetrics so it tracks text scale.
+//   • Wrap automatically flows cards to the next row on narrow screens.
+//   • No GridView / mainAxisExtent needed — eliminating fragile pixel math.
 
 class _BalancesGrid extends StatelessWidget {
   const _BalancesGrid({required this.balances});
@@ -249,18 +255,14 @@ class _BalancesGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 5,
-        mainAxisSpacing: AppSpacing.sm,
-        crossAxisSpacing: AppSpacing.sm,
-        childAspectRatio: 0.7,
-      ),
-      itemCount: balances.length,
-      itemBuilder: (context, i) =>
-          MemberBalanceCard(balance: balances[i]),
+    final cardWidth = BalanceCardMetrics.preferredWidth(context);
+
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      children: balances
+          .map((b) => SizedBox(width: cardWidth, child: MemberBalanceCard(balance: b)))
+          .toList(),
     );
   }
 }

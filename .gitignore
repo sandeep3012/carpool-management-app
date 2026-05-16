@@ -1,0 +1,72 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+
+# IntelliJ / Android Studio
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code
+# Uncomment below if you DON'T want VS Code settings in git
+# .vscode/
+
+# Flutter / Dart / Pub
+**/doc/api/
+**/ios/Flutter/.last_build_id
+
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+
+.pub-cache/
+.pub/
+
+# Build outputs
+/build/
+android/build/
+ios/Flutter/ephemeral/
+
+# Generated Flutter file
+lib/generated_plugin_registrant.dart
+
+# Symbolication
+app.*.symbols
+
+# Obfuscation
+app.*.map.json
+
+# Android build folders
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Firebase
+google-services.json
+GoogleService-Info.plist
+
+# Signing keys / secrets
+key.properties
+*.jks
+*.keystore
+
+# Coverage
+coverage/
+
+# MacOS
+macos/Flutter/ephemeral/
+
+# Windows
+windows/flutter/ephemeral/
+
+# Linux
+linux/flutter/ephemeral/

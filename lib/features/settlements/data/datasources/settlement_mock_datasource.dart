@@ -20,36 +20,36 @@ class SettlementMockDatasource {
   static const _members = [
     (
       id: 'm001',
-      name: 'Sandeep Choudhary',
-      initials: 'SC',
+      name: 'Piyush Kashyap',
+      initials: 'PK',
       colorIndex: 0,
       isMe: true
     ),
     (
       id: 'm002',
-      name: 'Priya Sharma',
-      initials: 'PS',
+      name: 'Sunil Kumawat',
+      initials: 'SK',
       colorIndex: 1,
       isMe: false
     ),
     (
       id: 'm003',
-      name: 'Suresh Patel',
-      initials: 'SP',
+      name: 'Yogesh Chaturvedi',
+      initials: 'YC',
       colorIndex: 2,
       isMe: false
     ),
     (
       id: 'm004',
-      name: 'Kavitha Nair',
-      initials: 'KN',
+      name: 'Kshitij Khandelwal',
+      initials: 'KK',
       colorIndex: 3,
       isMe: false
     ),
     (
       id: 'm005',
-      name: 'Arun Singh',
-      initials: 'AS',
+      name: 'Sandeep Choudhary',
+      initials: 'SC',
       colorIndex: 4,
       isMe: false
     ),

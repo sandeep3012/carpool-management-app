@@ -8,8 +8,11 @@ import '../../../trips/presentation/providers/trips_provider.dart';
 // ── Storage key ───────────────────────────────────────────────────────────────
 
 /// JSON file key for persisted payment records.
-/// Bumped from v1 (statuses-only) because the schema now stores full records.
-const _kPaymentsKey = 'settlements_payments_v1';
+/// v1: status-only strings (legacy — discarded).
+/// v2: full PaymentRecord objects, completed at pay_... key (legacy — discarded).
+/// v3: full PaymentRecord objects; completed records at unique settled_...[_N]
+///     keys so historical completions survive subsequent trip-edit cycles.
+const _kPaymentsKey = 'settlements_payments_v3';
 
 // ── Payment record ────────────────────────────────────────────────────────────
 
@@ -114,13 +117,22 @@ class PaymentRecord {
 ///      update state in-place (confirmed) or trigger a full recompute
 ///      (completed / reset) to reconcile net balances correctly.
 ///
-/// ## Payment IDs
-///   Canonical key format: `pay_<fromId>_<toId>_<month>_<year>`
-///   This is the key in [_payments] for every record.
+/// ## Key scheme
+///   `pay_<fromId>_<toId>_<month>_<year>`
+///     — Temporary "in-flight" key for CONFIRMED records only.
+///       At most one per (from, to, month) pair at any time.
+///       Removed when the payment completes or is reset.
 ///
-///   Completed payments are displayed with a `settled_` prefix ID so that
-///   [resetPayment] can distinguish them from active suggestions and strip
-///   the prefix when looking up the record.
+///   `settled_<fromId>_<toId>_<month>_<year>[_N]`
+///     — Permanent key for each COMPLETED record.
+///       Accumulated — never overwritten.  When the same pair completes a
+///       second settlement cycle (after a trip edit), a new sequence suffix
+///       (_2, _3, …) is appended so both records coexist.
+///
+///   This separation prevents the historical overwrite bug: a trip edit that
+///   creates a new active suggestion for an already-settled pair does NOT
+///   corrupt the prior completion record, because the new confirmation writes
+///   to a fresh unique key rather than back to the original `pay_` key.
 ///
 /// ## Reconciliation
 ///   On every [_compute] call the [_payments] map is split into:
@@ -138,7 +150,7 @@ class SettlementNotifier
 
   final Ref _ref;
 
-  /// payment id (canonical `pay_...` key) → [PaymentRecord].
+  /// `pay_...` → confirmed [PaymentRecord]; `settled_...[_N]` → completed [PaymentRecord].
   /// Persisted across restarts; loaded before the first [_compute].
   final Map<String, PaymentRecord> _payments = {};
 
@@ -277,10 +289,16 @@ class SettlementNotifier
       _flushPayments();
       _updatePayment(settlement, idx, p.copyWith(status: PaymentStatus.confirmed));
     } else if (p.isConfirmed) {
-      // confirmed → completed: update record, full recompute.
-      // Net balances change — the settled amount is removed from outstanding.
+      // confirmed → completed: move record from pay_... to a unique settled_...
+      // key so the historical completion is never overwritten by a future
+      // settlement cycle for the same pair.
+      //
+      // The pay_... confirmed record is removed and replaced by a new
+      // settled_...[_N] completed record.  Net balances change — full recompute.
       final existing = _payments[paymentId];
-      _payments[paymentId] = existing != null
+      final settledKey = _nextSettledKey(paymentId);
+      _payments.remove(paymentId); // remove the transient confirmed record
+      _payments[settledKey] = existing != null
           ? existing.copyWith(status: PaymentStatus.completed)
           : PaymentRecord(
               status: PaymentStatus.completed,
@@ -303,26 +321,21 @@ class SettlementNotifier
 
   /// Reset a payment back to pending (undo / demo convenience).
   ///
-  /// [displayId] may be a `pay_` active ID (pending/confirmed) or a
-  /// `settled_` display ID (completed).  The `settled_` prefix is stripped
-  /// to find the canonical `pay_` key in [_payments].
+  /// [displayId] is the direct [_payments] key — no prefix conversion needed:
+  ///   `settled_...[_N]` keys map to completed records (balance changes).
+  ///   `pay_...` keys map to confirmed records (in-place status reset).
   void resetPayment(String displayId) {
-    // Resolve to the canonical key stored in _payments.
-    final key = displayId.startsWith('settled_')
-        ? 'pay_${displayId.substring('settled_'.length)}'
-        : displayId;
-
-    final wasCompleted = _payments[key]?.status == PaymentStatus.completed;
-    _payments.remove(key);
+    final wasCompleted = _payments[displayId]?.status == PaymentStatus.completed;
+    _payments.remove(displayId);
     _flushPayments();
 
     if (wasCompleted) {
-      // Net balances change — full recompute.
+      // Completed record removed — net balances change.
       _compute();
       return;
     }
 
-    // Only a confirmed status was cleared — update in-place.
+    // Confirmed record cleared — flip status back to pending in-place.
     final settlement = state.valueOrNull;
     if (settlement == null) {
       _compute();
@@ -338,6 +351,24 @@ class SettlementNotifier
       idx,
       settlement.payments[idx].copyWith(status: PaymentStatus.pending),
     );
+  }
+
+  /// Returns a unique `settled_...[_N]` key for a completed payment.
+  ///
+  /// Completed records accumulate — they are never overwritten.  When the same
+  /// (from, to, month, year) pair completes a second settlement cycle (e.g.
+  /// after a trip edit), the sequence suffix ensures both records coexist:
+  ///   `settled_A_B_5_2025`    — first completion
+  ///   `settled_A_B_5_2025_2`  — second completion
+  ///   `settled_A_B_5_2025_3`  — third completion, etc.
+  String _nextSettledKey(String payKey) {
+    final base = 'settled_${payKey.substring('pay_'.length)}';
+    if (!_payments.containsKey(base)) return base;
+    var seq = 2;
+    while (_payments.containsKey('${base}_$seq')) {
+      seq++;
+    }
+    return '${base}_$seq';
   }
 
   void _updatePayment(

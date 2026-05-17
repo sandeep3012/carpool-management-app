@@ -36,10 +36,13 @@ import '../../../trips/data/models/trip_entry_model.dart';
 ///   Active suggestions: `pay_<fromId>_<toId>_<month>_<year>`
 ///     — stable across recomputes for the same from/to/month so that
 ///       [confirmedStatuses] survives trips being added mid-month.
+///       Only ONE confirmed record per pair/month ever exists in _payments.
 ///
-///   Completed display entries: `settled_<fromId>_<toId>_<month>_<year>`
-///     — avoids ID collision with new active suggestions for the same pair
-///       after a reset; prefix is stripped by [SettlementNotifier.resetPayment].
+///   Completed display entries: taken directly from [CompletedPayment.originalId]
+///     — the unique `settled_<fromId>_<toId>_<month>_<year>[_N]` key stored in
+///       [SettlementNotifier._payments].  Using the stored key (not a freshly
+///       generated string) means multiple completions for the same pair each
+///       produce a distinct display entry and [resetPayment] resolves correctly.
 class SettlementCalculator {
   SettlementCalculator._();
 
@@ -73,12 +76,15 @@ class SettlementCalculator {
         _computePayments(netBalances, confirmedStatuses, month, year);
 
     // Step 4: Reconstruct completed entries for the "Settled" display section.
-    //         Use 'settled_' prefix to avoid ID clash with any future active
-    //         suggestion for the same member pair in this month.
+    //         The display ID comes directly from cp.originalId — the unique
+    //         settled_... key stored in SettlementNotifier._payments.  Using
+    //         the stored key guarantees that resetPayment(p.id) resolves to
+    //         exactly the right record, even when the same pair has multiple
+    //         completed records across successive settlement cycles.
     final completedSuggestions = completedPayments
         .map(
           (cp) => PaymentSuggestion(
-            id: 'settled_${cp.fromId}_${cp.toId}_${month}_$year',
+            id: cp.originalId, // unique settled_...[_N] key from _payments
             fromId: cp.fromId,
             fromName: cp.fromName,
             fromInitials: cp.fromInitials,

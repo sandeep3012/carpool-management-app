@@ -13,17 +13,18 @@ class TripMockDatasource {
   static const List<MemberModel> members = [
     MemberModel(
         id: 'm001',
-        name: 'Sandeep Choudhary',
-        initials: 'SC',
+        name: 'Piyush Kashyap',
+        initials: 'PK',
         colorIndex: 0,
         isCurrentUser: true),
     MemberModel(
-        id: 'm002', name: 'Priya Sharma', initials: 'PS', colorIndex: 1),
+        id: 'm002', name: 'Sunil Kumawat', initials: 'SK', colorIndex: 1),
     MemberModel(
-        id: 'm003', name: 'Suresh Patel', initials: 'SP', colorIndex: 2),
+        id: 'm003', name: 'Yogesh Chaturvedi', initials: 'YC', colorIndex: 2),
     MemberModel(
-        id: 'm004', name: 'Kavitha Nair', initials: 'KN', colorIndex: 3),
-    MemberModel(id: 'm005', name: 'Arun Singh', initials: 'AS', colorIndex: 4),
+        id: 'm004', name: 'Kshitiz Khandelwal', initials: 'KK', colorIndex: 3),
+    MemberModel(
+        id: 'm005', name: 'Sandeep Choudhary', initials: 'SC', colorIndex: 4),
   ];
 
   static MemberModel get currentUser => members[0];

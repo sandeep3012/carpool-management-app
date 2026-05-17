@@ -191,10 +191,16 @@ class MonthlySettlement {
 ///   2. Reduce the recipient's outstanding credit (toId's net balance shrinks).
 ///   3. Reconstruct a display [PaymentSuggestion] in the "Settled" section.
 ///
-/// Stored in [SettlementNotifier._payments] and only passed to the calculator
-/// for the month/year that matches the current calendar selection.
+/// Stored in [SettlementNotifier._payments] under a unique `settled_...` key
+/// that is preserved as [originalId].  Multiple completions for the same pair
+/// in the same month each get their own key so historical records are never
+/// overwritten by subsequent settlement cycles.
 class CompletedPayment {
-  final String originalId; // stable 'pay_<fromId>_<toId>_<month>_<year>' key
+  /// The unique `settled_<fromId>_<toId>_<month>_<year>[_N]` key used as both
+  /// the [SettlementNotifier._payments] map key and the [PaymentSuggestion.id]
+  /// for the display entry in the "Settled" section.  Passed back to
+  /// [SettlementNotifier.resetPayment] as-is so the correct record is removed.
+  final String originalId;
   final String fromId;
   final String fromName;
   final String fromInitials;

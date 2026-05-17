@@ -126,6 +126,9 @@ final dashboardStateProvider =
   }).toList();
 
   // ── Pending settlement card ──────────────────────────────────────────────
+  //
+  // Show the card whenever there is any settlement activity (payments exist),
+  // even after full settlement — so the "All Settled" state is visible.
 
   final pendingSettlement = settlementAsync.maybeWhen(
     data: (s) => s.payments.isEmpty
@@ -134,10 +137,13 @@ final dashboardStateProvider =
             id: s.id,
             month: s.month,
             year: s.year,
-            totalAmount: s.totalExpense,
+            // Outstanding amount — sum of payments still needing action.
+            // Zero when fully settled (no yellow amount shown).
+            totalAmount: pendingAmount,
             transactionCount: s.payments
                 .where((p) => p.isPending || p.isConfirmed)
                 .length,
+            completedCount: s.payments.where((p) => p.isCompleted).length,
             status: s.isFullySettled
                 ? SettlementStatusConst.completed
                 : SettlementStatusConst.inProgress,

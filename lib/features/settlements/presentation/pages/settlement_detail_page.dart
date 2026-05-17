@@ -34,7 +34,9 @@ class SettlementDetailPage extends ConsumerWidget {
       body: asyncSettlement.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => _ErrorBody(error: e),
-        data: (settlement) => _DetailBody(settlement: settlement),
+        // _DetailBody watches settlementProvider directly so payment
+        // mutations are reflected immediately without parent re-renders.
+        data: (_) => const _DetailBody(),
       ),
     );
   }
@@ -42,9 +44,9 @@ class SettlementDetailPage extends ConsumerWidget {
 
 // ── Body ──────────────────────────────────────────────────────────────────────
 
+/// Watches [settlementProvider] directly — rebuilds on every payment mutation.
 class _DetailBody extends ConsumerWidget {
-  const _DetailBody({required this.settlement});
-  final MonthlySettlement settlement;
+  const _DetailBody();
 
   static const List<String> _months = [
     '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -53,6 +55,8 @@ class _DetailBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Direct watch — no stale snapshot risk.
+    final settlement = ref.watch(settlementProvider).requireValue;
     final notifier = ref.read(settlementProvider.notifier);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;

@@ -128,10 +128,15 @@ class TripsCalendarPage extends ConsumerWidget {
 
   Future<void> _openEdit(
       BuildContext context, WidgetRef ref, TripEntry trip) async {
-    final result = await showTripEntrySheet(context, date: trip.date);
-    if (result != null) {
-      ref.read(tripsNotifierProvider.notifier).refresh();
-    }
+    // Pass the existing trip so the sheet opens in edit mode:
+    //   - form is pre-populated from all persisted fields
+    //   - title shows "Edit Trip"
+    //   - save reuses the original ID (no duplicate created)
+    // The trip's ID is the only field used by TripFormNotifier._buildInitialState
+    // to load the latest state from TripLocalStore, so even if `trip` is a
+    // slightly stale snapshot, the form always reflects the stored truth.
+    // No manual refresh needed — tripsNotifierProvider is reactive.
+    await showTripEntrySheet(context, date: trip.date, existingTrip: trip);
   }
 }
 

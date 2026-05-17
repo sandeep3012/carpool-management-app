@@ -11,6 +11,11 @@
 ///
 /// Optimized payments use the "minimum transactions" algorithm:
 ///   repeatedly match the largest debtor with the largest creditor.
+///
+/// Reconciliation:
+///   Net Outstanding = Gross Net Balance − Sum of completed payment amounts
+///   [CompletedPayment] objects are passed to [SettlementCalculator] so that
+///   member balance cards show only what is still unpaid.
 
 // ── Member balance ────────────────────────────────────────────────────────────
 
@@ -86,7 +91,7 @@ class PaymentSuggestion {
   final int toColorIndex;
 
   final double amount;
-  String status; // mutable so UI can toggle in-place
+  final String status;
 
   PaymentSuggestion({
     required this.id,
@@ -151,7 +156,7 @@ class MonthlySettlement {
   /// Total number of trips in the month.
   final int totalTrips;
 
-  String status;
+  final String status;
 
   MonthlySettlement({
     required this.id,
@@ -173,5 +178,43 @@ class MonthlySettlement {
   double get settlementProgress =>
       payments.isEmpty ? 0 : completedPayments / payments.length;
 
-  bool get isFullySettled => pendingPayments == 0 && payments.isNotEmpty;
+  /// True when every payment (active + settled) is completed — i.e. no
+  /// pending or confirmed suggestions remain.
+  bool get isFullySettled =>
+      payments.isNotEmpty && payments.every((p) => p.isCompleted);
+}
+
+// ── Completed payment (calculator input) ──────────────────────────────────────
+
+/// A fully-settled payment passed to [SettlementCalculator] so it can:
+///   1. Reduce the payer's outstanding debt (fromId's net balance improves).
+///   2. Reduce the recipient's outstanding credit (toId's net balance shrinks).
+///   3. Reconstruct a display [PaymentSuggestion] in the "Settled" section.
+///
+/// Stored in [SettlementNotifier._payments] and only passed to the calculator
+/// for the month/year that matches the current calendar selection.
+class CompletedPayment {
+  final String originalId; // stable 'pay_<fromId>_<toId>_<month>_<year>' key
+  final String fromId;
+  final String fromName;
+  final String fromInitials;
+  final int fromColorIndex;
+  final String toId;
+  final String toName;
+  final String toInitials;
+  final int toColorIndex;
+  final double amount;
+
+  const CompletedPayment({
+    required this.originalId,
+    required this.fromId,
+    required this.fromName,
+    required this.fromInitials,
+    required this.fromColorIndex,
+    required this.toId,
+    required this.toName,
+    required this.toInitials,
+    required this.toColorIndex,
+    required this.amount,
+  });
 }

@@ -3,43 +3,99 @@ import '../../../trips/data/models/trip_entry_model.dart';
 
 /// Pure settlement engine — zero external dependencies.
 ///
-/// ## Business rules (from PRD)
+/// ## Business rules
 ///
 ///   Driver Contribution = total trip expense for trips the member drove
 ///   Ride Charge         = per-person share for every trip the member attended
-///   Net Balance         = Driver Contribution − Total Ride Charges
+///   Gross Net Balance   = Driver Contribution − Total Ride Charges
 ///
-///   Positive net → creditor (others owe them money)
-///   Negative net → debtor   (they owe money to others)
+///   Positive gross net → creditor (others owe them money)
+///   Negative gross net → debtor   (they owe money to others)
+///
+/// ## Reconciliation (net outstanding)
+///
+///   Net Outstanding Balance = Gross Balance − Σ(completed payment amounts)
+///
+///   For each completed payment (from → to):
+///     - from's balance improves by `amount` (less debt / more credit)
+///     - to's balance decreases by `amount`  (less credit / more debt)
+///
+///   Member balance cards show NET outstanding — not gross historical totals.
+///   The greedy algorithm is applied to net balances, so only the remaining
+///   unpaid amount generates active payment suggestions.
 ///
 /// ## Greedy minimum-transactions algorithm
 ///
-///   Sort creditors descending, debtors descending (by abs value).
+///   Sort creditors descending, debtors descending (by absolute value).
 ///   Repeatedly match the largest creditor with the largest debtor:
-///     payment = min(creditor.balance, debtor.balance)
+///     payment = min(creditor.remaining, debtor.remaining)
 ///   Terminate when all balances are within ±₹0.50 (floating-point tolerance).
 ///
-/// Payment IDs are stable across recalculations for the same from/to/month:
-///   `pay_<fromId>_<toId>_<month>_<year>`
-/// This allows [preservedStatuses] to carry forward UI confirmations.
+/// ## Payment IDs
+///
+///   Active suggestions: `pay_<fromId>_<toId>_<month>_<year>`
+///     — stable across recomputes for the same from/to/month so that
+///       [confirmedStatuses] survives trips being added mid-month.
+///
+///   Completed display entries: `settled_<fromId>_<toId>_<month>_<year>`
+///     — avoids ID collision with new active suggestions for the same pair
+///       after a reset; prefix is stripped by [SettlementNotifier.resetPayment].
 class SettlementCalculator {
   SettlementCalculator._();
 
   /// Build a complete [MonthlySettlement] from real trip data.
   ///
-  /// [preservedStatuses] maps a payment id to its current UI status so that
-  /// "confirmed" / "completed" states survive settlement recomputation when
-  /// new trips are added mid-month.
+  /// [completedPayments] are fully-settled payments.  Their amounts are
+  /// subtracted from gross balances to produce net outstanding balances, and
+  /// they are reconstructed as [PaymentSuggestion] entries for the UI's
+  /// "Settled" display section.
+  ///
+  /// [confirmedStatuses] maps `pay_` payment ids → `'confirmed'` so the
+  /// intermediate confirmation state survives mid-month recomputes without
+  /// changing the net balance (balance only adjusts on completion).
   static MonthlySettlement calculate({
     required int month,
     required int year,
     required List<TripEntry> trips,
     required List<MemberModel> members,
-    Map<String, String> preservedStatuses = const {},
+    List<CompletedPayment> completedPayments = const [],
+    Map<String, String> confirmedStatuses = const {},
   }) {
-    final balances = _computeBalances(trips, members);
-    final payments =
-        _computePayments(balances, preservedStatuses, month, year);
+    // Step 1: Gross balances from trips.
+    final grossBalances = _computeGrossBalances(trips, members);
+
+    // Step 2: Net outstanding = gross − completed settlement amounts.
+    final netBalances =
+        _adjustForCompletedPayments(grossBalances, completedPayments);
+
+    // Step 3: Active payment suggestions from net balances only.
+    final activePayments =
+        _computePayments(netBalances, confirmedStatuses, month, year);
+
+    // Step 4: Reconstruct completed entries for the "Settled" display section.
+    //         Use 'settled_' prefix to avoid ID clash with any future active
+    //         suggestion for the same member pair in this month.
+    final completedSuggestions = completedPayments
+        .map(
+          (cp) => PaymentSuggestion(
+            id: 'settled_${cp.fromId}_${cp.toId}_${month}_$year',
+            fromId: cp.fromId,
+            fromName: cp.fromName,
+            fromInitials: cp.fromInitials,
+            fromColorIndex: cp.fromColorIndex,
+            toId: cp.toId,
+            toName: cp.toName,
+            toInitials: cp.toInitials,
+            toColorIndex: cp.toColorIndex,
+            amount: cp.amount,
+            status: PaymentStatus.completed,
+          ),
+        )
+        .toList();
+
+    // Active suggestions first, completed entries below.
+    final allPayments = [...activePayments, ...completedSuggestions];
+
     final totalExpense = trips.fold<double>(
       0,
       (sum, t) => sum + t.expenses.totalExpense,
@@ -49,17 +105,17 @@ class SettlementCalculator {
       id: 'settlement_${year}_${month.toString().padLeft(2, '0')}',
       month: month,
       year: year,
-      memberBalances: balances,
-      payments: payments,
+      memberBalances: netBalances, // net — not gross
+      payments: allPayments,
       totalExpense: totalExpense,
       totalTrips: trips.length,
-      status: SettlementStatusConst.inProgress,
+      status: _deriveStatus(allPayments),
     );
   }
 
-  // ── Net balance computation ───────────────────────────────────────────────
+  // ── Gross balance computation ─────────────────────────────────────────────
 
-  static List<MemberBalance> _computeBalances(
+  static List<MemberBalance> _computeGrossBalances(
     List<TripEntry> trips,
     List<MemberModel> members,
   ) {
@@ -94,15 +150,13 @@ class SettlementCalculator {
     return members.map((m) {
       final paid = amountPaid[m.id] ?? 0;
       final owed = amountOwed[m.id] ?? 0;
-      final net = paid - owed;
-
       return MemberBalance(
         memberId: m.id,
         memberName: m.name,
         memberInitials: m.initials,
         colorIndex: m.colorIndex,
         isCurrentUser: m.isCurrentUser,
-        netBalance: net,
+        netBalance: paid - owed,
         totalDriven: paid,
         totalRideCharges: owed,
         tripsDriven: driven[m.id] ?? 0,
@@ -110,15 +164,55 @@ class SettlementCalculator {
     }).toList();
   }
 
+  // ── Net balance adjustment ────────────────────────────────────────────────
+
+  /// Subtracts completed payment amounts from gross balances.
+  ///
+  /// For a payment where [from] pays [to]:
+  ///   from.netBalance += amount  (less debt  / gained credit)
+  ///   to.netBalance  -= amount   (less credit / gained debt from their perspective)
+  static List<MemberBalance> _adjustForCompletedPayments(
+    List<MemberBalance> grossBalances,
+    List<CompletedPayment> completedPayments,
+  ) {
+    if (completedPayments.isEmpty) return grossBalances;
+
+    final netMap = <String, double>{
+      for (final b in grossBalances) b.memberId: b.netBalance,
+    };
+
+    for (final cp in completedPayments) {
+      netMap[cp.fromId] = (netMap[cp.fromId] ?? 0) + cp.amount;
+      netMap[cp.toId] = (netMap[cp.toId] ?? 0) - cp.amount;
+    }
+
+    return grossBalances
+        .map(
+          (b) => MemberBalance(
+            memberId: b.memberId,
+            memberName: b.memberName,
+            memberInitials: b.memberInitials,
+            colorIndex: b.colorIndex,
+            isCurrentUser: b.isCurrentUser,
+            netBalance: netMap[b.memberId] ?? b.netBalance,
+            totalDriven: b.totalDriven,
+            totalRideCharges: b.totalRideCharges,
+            tripsDriven: b.tripsDriven,
+          ),
+        )
+        .toList();
+  }
+
   // ── Greedy min-transactions algorithm ────────────────────────────────────
 
+  /// Generates the minimum number of payment suggestions to clear net balances.
   static List<PaymentSuggestion> _computePayments(
     List<MemberBalance> balances,
-    Map<String, String> preservedStatuses,
+    Map<String, String> confirmedStatuses,
     int month,
     int year,
   ) {
-    const kTolerance = 0.50; // amounts below ₹0.50 are treated as settled
+    const kTolerance = 0.50; // amounts below ₹0.50 are treated as zero
 
     final credits = balances
         .where((b) => b.netBalance > kTolerance)
@@ -142,7 +236,6 @@ class SettlementCalculator {
           ? creditor.remaining
           : debtor.remaining;
 
-      // Stable id keyed on from + to + month + year.
       final stableId =
           'pay_${debtor.b.memberId}_${creditor.b.memberId}_${month}_$year';
 
@@ -157,7 +250,7 @@ class SettlementCalculator {
         toInitials: creditor.b.memberInitials,
         toColorIndex: creditor.b.colorIndex,
         amount: double.parse(amount.toStringAsFixed(2)),
-        status: preservedStatuses[stableId] ?? PaymentStatus.pending,
+        status: confirmedStatuses[stableId] ?? PaymentStatus.pending,
       ));
 
       creditor.remaining -= amount;
@@ -168,6 +261,16 @@ class SettlementCalculator {
     }
 
     return suggestions;
+  }
+
+  // ── Settlement status ─────────────────────────────────────────────────────
+
+  static String _deriveStatus(List<PaymentSuggestion> payments) {
+    if (payments.isEmpty) return SettlementStatusConst.draft;
+    if (payments.every((p) => p.isCompleted)) {
+      return SettlementStatusConst.completed;
+    }
+    return SettlementStatusConst.inProgress;
   }
 }
 

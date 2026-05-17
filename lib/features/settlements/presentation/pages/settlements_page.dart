@@ -42,7 +42,10 @@ class SettlementsPage extends ConsumerWidget {
         error: (e, _) => _ErrorState(
           onRetry: () => ref.read(settlementProvider.notifier).refresh(),
         ),
-        data: (settlement) => _SettlementBody(settlement: settlement),
+        // _SettlementBody watches settlementProvider directly so it
+        // rebuilds on every payment mutation without depending on this
+        // parent's rebuild cycle.
+        data: (_) => const _SettlementBody(),
       ),
     );
   }
@@ -50,9 +53,10 @@ class SettlementsPage extends ConsumerWidget {
 
 // ── Main body ─────────────────────────────────────────────────────────────────
 
+/// Watches [settlementProvider] directly so any payment mutation instantly
+/// triggers a rebuild — no dependency on the parent's rebuild cycle.
 class _SettlementBody extends ConsumerWidget {
-  const _SettlementBody({required this.settlement});
-  final MonthlySettlement settlement;
+  const _SettlementBody();
 
   static const List<String> _months = [
     '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -61,9 +65,17 @@ class _SettlementBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final myBalance = ref.watch(myBalanceProvider);
+    // Direct watch — rebuilds on every settlement state change.
+    final settlement = ref.watch(settlementProvider).requireValue;
     final notifier = ref.read(settlementProvider.notifier);
     final theme = Theme.of(context);
+
+    // Find current user's balance from the live settlement.
+    MemberBalance? myBalance;
+    try {
+      myBalance =
+          settlement.memberBalances.firstWhere((b) => b.isCurrentUser);
+    } catch (_) {}
 
     final pendingPayments = settlement.payments
         .where((p) => p.isPending || p.isConfirmed)

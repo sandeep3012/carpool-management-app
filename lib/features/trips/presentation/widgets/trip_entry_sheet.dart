@@ -232,13 +232,14 @@ class _TripEntryContentState extends ConsumerState<_TripEntryContent> {
   Future<void> _save(
       TripFormState formState, TripFormNotifier notifier) async {
     setState(() => _saving = true);
-    // Simulate a brief async save (replace with real repo call later)
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    final trip = notifier.save();
-    // Invalidate the calendar so the new dot appears
-    ref.invalidate(calendarMonthProvider);
-    if (mounted) {
-      Navigator.of(context).pop(trip);
+    try {
+      // Real async write to the persistent local store.
+      final trip = await notifier.save();
+      // Reset the calendar view to the saved trip's month.
+      ref.invalidate(calendarMonthProvider);
+      if (mounted) Navigator.of(context).pop(trip);
+    } catch (_) {
+      if (mounted) setState(() => _saving = false);
     }
   }
 }

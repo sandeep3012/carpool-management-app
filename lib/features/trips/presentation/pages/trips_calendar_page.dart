@@ -110,7 +110,9 @@ class TripsCalendarPage extends ConsumerWidget {
       BuildContext context, WidgetRef ref, DateTime date) async {
     final trip = await showTripEntrySheet(context, date: date);
     if (trip != null) {
-      ref.read(tripsNotifierProvider.notifier).addTrip(trip);
+      // Trip was already persisted inside TripFormNotifier.save(); just
+      // ensure the selected date refreshes the bottom panel immediately.
+      // (tripsNotifierProvider already updated during save.)
       // Re-watch the selected date so the card appears immediately
       ref.read(selectedDateProvider.notifier).state = date;
     }

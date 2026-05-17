@@ -29,6 +29,22 @@ class MemberModel {
     this.isCurrentUser = false,
   });
 
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'initials': initials,
+        'colorIndex': colorIndex,
+        'isCurrentUser': isCurrentUser,
+      };
+
+  factory MemberModel.fromJson(Map<String, dynamic> json) => MemberModel(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        initials: json['initials'] as String,
+        colorIndex: json['colorIndex'] as int,
+        isCurrentUser: (json['isCurrentUser'] as bool?) ?? false,
+      );
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) || (other is MemberModel && other.id == id);
@@ -63,6 +79,25 @@ class ExpenseBreakdown {
 
   double get totalExpense =>
       fuelExpense + tollExpense + parkingExpense + otherExpense;
+
+  Map<String, dynamic> toJson() => {
+        'distanceKm': distanceKm,
+        'fuelRatePerLitre': fuelRatePerLitre,
+        'mileageKmpl': mileageKmpl,
+        'tollExpense': tollExpense,
+        'parkingExpense': parkingExpense,
+        'otherExpense': otherExpense,
+      };
+
+  factory ExpenseBreakdown.fromJson(Map<String, dynamic> json) =>
+      ExpenseBreakdown(
+        distanceKm: (json['distanceKm'] as num).toDouble(),
+        fuelRatePerLitre: (json['fuelRatePerLitre'] as num).toDouble(),
+        mileageKmpl: (json['mileageKmpl'] as num).toDouble(),
+        tollExpense: (json['tollExpense'] as num?)?.toDouble() ?? 0,
+        parkingExpense: (json['parkingExpense'] as num?)?.toDouble() ?? 0,
+        otherExpense: (json['otherExpense'] as num?)?.toDouble() ?? 0,
+      );
 
   ExpenseBreakdown copyWith({
     double? distanceKm,
@@ -127,6 +162,32 @@ class TripEntry {
         date.month == now.month &&
         date.day == now.day;
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'date': date.toIso8601String(),
+        'driver': driver.toJson(),
+        'attendees': attendees.map((a) => a.toJson()).toList(),
+        'expenses': expenses.toJson(),
+        'status': status,
+        'notes': notes,
+        'createdAt': createdAt.toIso8601String(),
+      };
+
+  factory TripEntry.fromJson(Map<String, dynamic> json) => TripEntry(
+        id: json['id'] as String,
+        date: DateTime.parse(json['date'] as String),
+        driver: MemberModel.fromJson(
+            json['driver'] as Map<String, dynamic>),
+        attendees: (json['attendees'] as List<dynamic>)
+            .map((a) => MemberModel.fromJson(a as Map<String, dynamic>))
+            .toList(),
+        expenses: ExpenseBreakdown.fromJson(
+            json['expenses'] as Map<String, dynamic>),
+        status: json['status'] as String,
+        notes: json['notes'] as String?,
+        createdAt: DateTime.parse(json['createdAt'] as String),
+      );
 
   TripEntry copyWith({
     String? id,

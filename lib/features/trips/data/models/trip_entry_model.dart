@@ -216,6 +216,12 @@ class TripEntry {
 
 class TripFormState {
   final DateTime date;
+
+  /// Non-null when editing an existing trip.  [TripFormNotifier.save] uses
+  /// this to upsert (preserving the original ID) rather than inserting a
+  /// brand-new trip with a fresh timestamp-based ID.
+  final String? originalId;
+
   final MemberModel? driver;
   final List<MemberModel> attendees;
   final double distanceKm;
@@ -228,6 +234,7 @@ class TripFormState {
 
   const TripFormState({
     required this.date,
+    this.originalId,
     this.driver,
     this.attendees = const [],
     this.distanceKm = 45.0,
@@ -258,6 +265,7 @@ class TripFormState {
 
   TripFormState copyWith({
     DateTime? date,
+    String? originalId,
     MemberModel? driver,
     List<MemberModel>? attendees,
     double? distanceKm,
@@ -270,6 +278,7 @@ class TripFormState {
   }) {
     return TripFormState(
       date: date ?? this.date,
+      originalId: originalId ?? this.originalId,
       driver: driver ?? this.driver,
       attendees: attendees ?? this.attendees,
       distanceKm: distanceKm ?? this.distanceKm,

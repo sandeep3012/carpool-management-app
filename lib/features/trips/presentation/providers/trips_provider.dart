@@ -138,19 +138,55 @@ final tripForSelectedDateProvider = Provider<TripEntry?>((ref) {
 
 // ── Trip form state notifier ──────────────────────────────────────────────────
 
-/// Manages the state of the new-trip entry sheet for a specific date.
+/// Manages the state of the trip entry sheet for both **create** and **edit**.
+///
+/// The family key is `(DateTime date, String? existingTripId)`:
+///   - `existingTripId == null` → create mode; a new ID is generated on save.
+///   - `existingTripId != null` → edit mode; the store is queried synchronously
+///     to hydrate all fields, and the same ID is reused on save so the
+///     existing record is replaced (upserted) rather than duplicated.
 ///
 /// [save] is async — it writes to [TripLocalStore] and notifies
-/// [tripsNotifierProvider] so the calendar updates immediately.
+/// [tripsNotifierProvider] so the calendar and settlement both update
+/// immediately without any extra `ref.invalidate`.
 class TripFormNotifier extends StateNotifier<TripFormState> {
-  TripFormNotifier(DateTime initialDate, this._ref)
-      : super(TripFormState(
-          date: initialDate,
-          driver: kCanonicalMembers.first,
-          attendees: List<MemberModel>.from(kCanonicalMembers),
-        ));
+  TripFormNotifier(DateTime initialDate, String? existingTripId, this._ref)
+      : super(_buildInitialState(initialDate, existingTripId));
 
   final Ref _ref;
+
+  /// Build the correct initial state.
+  ///
+  /// In edit mode the singleton [TripLocalStore] is queried synchronously —
+  /// this is safe because the store is always initialised before any trip
+  /// detail page (and therefore any edit sheet) can be opened.
+  static TripFormState _buildInitialState(
+      DateTime date, String? existingTripId) {
+    if (existingTripId != null) {
+      final trip = TripLocalStore().byId(existingTripId);
+      if (trip != null) {
+        return TripFormState(
+          date: trip.date,
+          originalId: trip.id,
+          driver: trip.driver,
+          attendees: List<MemberModel>.from(trip.attendees),
+          distanceKm: trip.expenses.distanceKm,
+          fuelRatePerLitre: trip.expenses.fuelRatePerLitre,
+          mileageKmpl: trip.expenses.mileageKmpl,
+          tollExpense: trip.expenses.tollExpense,
+          parkingExpense: trip.expenses.parkingExpense,
+          otherExpense: trip.expenses.otherExpense,
+          notes: trip.notes,
+        );
+      }
+    }
+    // Create mode defaults.
+    return TripFormState(
+      date: date,
+      driver: kCanonicalMembers.first,
+      attendees: List<MemberModel>.from(kCanonicalMembers),
+    );
+  }
 
   void setDriver(MemberModel driver) => state = state.copyWith(driver: driver);
 
@@ -173,13 +209,14 @@ class TripFormNotifier extends StateNotifier<TripFormState> {
   void setOther(double v) => state = state.copyWith(otherExpense: v);
   void setNotes(String v) => state = state.copyWith(notes: v);
 
-  /// Persist the current form state as a new [TripEntry] and return it.
+  /// Persist the form as a [TripEntry] and return it.
   ///
-  /// Triggers [tripsNotifierProvider] to reload so the calendar dot and
-  /// settlement calculation both update without any extra `ref.invalidate`.
+  /// Create mode → new timestamp-based ID.
+  /// Edit mode   → original ID reused → [TripLocalStore.save] upserts the
+  ///               existing record, eliminating the duplicate.
   Future<TripEntry> save() async {
     final entry = TripEntry(
-      id: TripLocalStore.newId(state.date),
+      id: state.originalId ?? TripLocalStore.newId(state.date),
       date: state.date,
       driver: state.driver!,
       attendees: List<MemberModel>.from(state.attendees),
@@ -194,8 +231,10 @@ class TripFormNotifier extends StateNotifier<TripFormState> {
   }
 }
 
-/// Factory: one fresh form notifier per date.
-final tripFormProvider =
-    StateNotifierProvider.family<TripFormNotifier, TripFormState, DateTime>(
-  (ref, date) => TripFormNotifier(date, ref),
+/// Family key: `(date, existingTripId)`.
+///   - `existingTripId == null` → create a new trip.
+///   - `existingTripId != null` → edit the trip with that ID.
+final tripFormProvider = StateNotifierProvider.family<TripFormNotifier,
+    TripFormState, (DateTime, String?)>(
+  (ref, key) => TripFormNotifier(key.$1, key.$2, ref),
 );

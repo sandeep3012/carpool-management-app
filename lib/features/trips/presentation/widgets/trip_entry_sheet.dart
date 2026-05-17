@@ -6,36 +6,43 @@ import '../providers/trips_provider.dart';
 import 'attendance_selector.dart';
 import 'expense_entry_section.dart';
 
-/// Quick-entry bottom sheet for creating a new trip.
+/// Quick-entry bottom sheet for creating **or editing** a trip.
 ///
-/// Designed for < 10-second trip creation:
-///   1. Date is pre-filled from the calendar selection.
-///   2. Current user is the default driver; all members selected.
-///   3. Distance / rate / mileage have sensible defaults.
+/// Pass [existingTrip] to open in edit mode:
+///   - All fields are pre-populated from the existing trip.
+///   - Saving reuses the original ID so no duplicate is created.
+///
+/// Omit [existingTrip] (or pass null) for create mode.
 ///
 /// Usage:
 /// ```dart
+/// // Create
 /// showTripEntrySheet(context, date: selectedDate);
+///
+/// // Edit
+/// showTripEntrySheet(context, date: trip.date, existingTrip: trip);
 /// ```
 Future<TripEntry?> showTripEntrySheet(
   BuildContext context, {
   required DateTime date,
+  TripEntry? existingTrip,
 }) {
   return showModalBottomSheet<TripEntry>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _TripEntrySheet(date: date),
+    builder: (_) => _TripEntrySheet(date: date, existingTrip: existingTrip),
   );
 }
 
 // ── Sheet ─────────────────────────────────────────────────────────────────────
 
 class _TripEntrySheet extends ConsumerWidget {
-  const _TripEntrySheet({required this.date});
+  const _TripEntrySheet({required this.date, this.existingTrip});
 
   final DateTime date;
+  final TripEntry? existingTrip;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -47,6 +54,7 @@ class _TripEntrySheet extends ConsumerWidget {
       builder: (context, scrollController) {
         return _TripEntryContent(
           date: date,
+          existingTrip: existingTrip,
           scrollController: scrollController,
         );
       },
@@ -59,10 +67,12 @@ class _TripEntrySheet extends ConsumerWidget {
 class _TripEntryContent extends ConsumerStatefulWidget {
   const _TripEntryContent({
     required this.date,
+    this.existingTrip,
     required this.scrollController,
   });
 
   final DateTime date;
+  final TripEntry? existingTrip;
   final ScrollController scrollController;
 
   @override
@@ -84,13 +94,20 @@ class _TripEntryContentState extends ConsumerState<_TripEntryContent> {
   String _fmtDate(DateTime d) =>
       '${_weekdays[d.weekday - 1]}, ${d.day} ${_months[d.month]} ${d.year}';
 
+  bool get _isEditMode => widget.existingTrip != null;
+
+  /// The Riverpod family key: (date, existingTripId).
+  /// Records implement == / hashCode by comparing fields, so Riverpod
+  /// caches one notifier per unique (date, id) pair.
+  (DateTime, String?) get _formKey => (widget.date, widget.existingTrip?.id);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final members = ref.watch(membersProvider);
-    final formState = ref.watch(tripFormProvider(widget.date));
-    final notifier = ref.read(tripFormProvider(widget.date).notifier);
+    final formState = ref.watch(tripFormProvider(_formKey));
+    final notifier = ref.read(tripFormProvider(_formKey).notifier);
 
     return Container(
       decoration: BoxDecoration(
@@ -124,7 +141,7 @@ class _TripEntryContentState extends ConsumerState<_TripEntryContent> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'New Trip',
+                      _isEditMode ? 'Edit Trip' : 'New Trip',
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -217,7 +234,11 @@ class _TripEntryContentState extends ConsumerState<_TripEntryContent> {
                         )
                       : const Icon(Icons.check_rounded),
                   label: Text(
-                    _saving ? 'Saving…' : 'Save Trip',
+                    _saving
+                        ? 'Saving…'
+                        : _isEditMode
+                            ? 'Save Changes'
+                            : 'Save Trip',
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -233,10 +254,12 @@ class _TripEntryContentState extends ConsumerState<_TripEntryContent> {
       TripFormState formState, TripFormNotifier notifier) async {
     setState(() => _saving = true);
     try {
-      // Real async write to the persistent local store.
       final trip = await notifier.save();
-      // Reset the calendar view to the saved trip's month.
-      ref.invalidate(calendarMonthProvider);
+      // For new trips: jump the calendar to the trip's month.
+      // For edits: the calendar stays on its current month (no navigation).
+      if (!_isEditMode) {
+        ref.invalidate(calendarMonthProvider);
+      }
       if (mounted) Navigator.of(context).pop(trip);
     } catch (_) {
       if (mounted) setState(() => _saving = false);

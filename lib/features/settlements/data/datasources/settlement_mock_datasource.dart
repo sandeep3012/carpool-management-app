@@ -18,11 +18,41 @@ class SettlementMockDatasource {
   // ── Member meta ──────────────────────────────────────────────────────────
 
   static const _members = [
-    (id: 'm001', name: 'Rajesh Kumar', initials: 'RK', colorIndex: 0, isMe: true),
-    (id: 'm002', name: 'Priya Sharma', initials: 'PS', colorIndex: 1, isMe: false),
-    (id: 'm003', name: 'Suresh Patel', initials: 'SP', colorIndex: 2, isMe: false),
-    (id: 'm004', name: 'Kavitha Nair', initials: 'KN', colorIndex: 3, isMe: false),
-    (id: 'm005', name: 'Arun Singh', initials: 'AS', colorIndex: 4, isMe: false),
+    (
+      id: 'm001',
+      name: 'Sandeep Choudhary',
+      initials: 'SC',
+      colorIndex: 0,
+      isMe: true
+    ),
+    (
+      id: 'm002',
+      name: 'Priya Sharma',
+      initials: 'PS',
+      colorIndex: 1,
+      isMe: false
+    ),
+    (
+      id: 'm003',
+      name: 'Suresh Patel',
+      initials: 'SP',
+      colorIndex: 2,
+      isMe: false
+    ),
+    (
+      id: 'm004',
+      name: 'Kavitha Nair',
+      initials: 'KN',
+      colorIndex: 3,
+      isMe: false
+    ),
+    (
+      id: 'm005',
+      name: 'Arun Singh',
+      initials: 'AS',
+      colorIndex: 4,
+      isMe: false
+    ),
   ];
 
   // ── Pre-calculated net balances ──────────────────────────────────────────
@@ -45,11 +75,11 @@ class SettlementMockDatasource {
   };
 
   static const _totalDriven = {
-    'm001': 732.0,   // 366 + 366
-    'm002': 752.0,   // 386 + 366
-    'm003': 832.0,   // 396 + 436
-    'm004': 732.0,   // 366 + 366
-    'm005': 752.0,   // 386 + 366
+    'm001': 732.0, // 366 + 366
+    'm002': 752.0, // 386 + 366
+    'm003': 832.0, // 396 + 436
+    'm004': 732.0, // 366 + 366
+    'm005': 752.0, // 386 + 366
   };
 
   // ── In-memory payment store ──────────────────────────────────────────────
@@ -65,8 +95,7 @@ class SettlementMockDatasource {
     //   3. Kavitha(−110)→ Priya  (+25)  : ₹25    [pending]
     //   4. Kavitha(−85) → Suresh (+85)  : ₹85    [pending]
 
-    String memberName(String id) =>
-        _members.firstWhere((m) => m.id == id).name;
+    String memberName(String id) => _members.firstWhere((m) => m.id == id).name;
     String memberInitials(String id) =>
         _members.firstWhere((m) => m.id == id).initials;
     int memberColorIndex(String id) =>
@@ -75,10 +104,12 @@ class SettlementMockDatasource {
     return [
       PaymentSuggestion(
         id: 'pay_001',
-        fromId: 'm005', fromName: memberName('m005'),
+        fromId: 'm005',
+        fromName: memberName('m005'),
         fromInitials: memberInitials('m005'),
         fromColorIndex: memberColorIndex('m005'),
-        toId: 'm001', toName: memberName('m001'),
+        toId: 'm001',
+        toName: memberName('m001'),
         toInitials: memberInitials('m001'),
         toColorIndex: memberColorIndex('m001'),
         amount: 145,
@@ -86,10 +117,12 @@ class SettlementMockDatasource {
       ),
       PaymentSuggestion(
         id: 'pay_002',
-        fromId: 'm005', fromName: memberName('m005'),
+        fromId: 'm005',
+        fromName: memberName('m005'),
         fromInitials: memberInitials('m005'),
         fromColorIndex: memberColorIndex('m005'),
-        toId: 'm002', toName: memberName('m002'),
+        toId: 'm002',
+        toName: memberName('m002'),
         toInitials: memberInitials('m002'),
         toColorIndex: memberColorIndex('m002'),
         amount: 10,
@@ -97,10 +130,12 @@ class SettlementMockDatasource {
       ),
       PaymentSuggestion(
         id: 'pay_003',
-        fromId: 'm004', fromName: memberName('m004'),
+        fromId: 'm004',
+        fromName: memberName('m004'),
         fromInitials: memberInitials('m004'),
         fromColorIndex: memberColorIndex('m004'),
-        toId: 'm002', toName: memberName('m002'),
+        toId: 'm002',
+        toName: memberName('m002'),
         toInitials: memberInitials('m002'),
         toColorIndex: memberColorIndex('m002'),
         amount: 25,
@@ -108,10 +143,12 @@ class SettlementMockDatasource {
       ),
       PaymentSuggestion(
         id: 'pay_004',
-        fromId: 'm004', fromName: memberName('m004'),
+        fromId: 'm004',
+        fromName: memberName('m004'),
         fromInitials: memberInitials('m004'),
         fromColorIndex: memberColorIndex('m004'),
-        toId: 'm003', toName: memberName('m003'),
+        toId: 'm003',
+        toName: memberName('m003'),
         toInitials: memberInitials('m003'),
         toColorIndex: memberColorIndex('m003'),
         amount: 85,
@@ -150,7 +187,7 @@ class SettlementMockDatasource {
       year: 2026,
       memberBalances: balances,
       payments: _payments,
-      totalExpense: 3820.0,   // sum of all 10 trip totals
+      totalExpense: 3820.0, // sum of all 10 trip totals
       totalTrips: 10,
       status: SettlementStatusConst.inProgress,
     );
@@ -181,8 +218,19 @@ class SettlementMockDatasource {
   }
 
   static const List<String> _monthNames = [
-    '', 'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    '',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
 
   static String monthLabel(int month, int year) =>

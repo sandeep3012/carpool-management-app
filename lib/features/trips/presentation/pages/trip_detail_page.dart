@@ -217,10 +217,11 @@ class TripDetailPage extends ConsumerWidget {
 
   Future<void> _onEdit(
       BuildContext context, WidgetRef ref, TripEntry trip) async {
-    final result = await showTripEntrySheet(context, date: trip.date);
-    if (result != null) {
-      ref.read(tripsNotifierProvider.notifier).refresh();
-    }
+    // Pass the full existing trip so the sheet hydrates all fields and
+    // reuses the original ID on save (no duplicate created).
+    // No manual refresh needed — this page already watches tripsNotifierProvider
+    // reactively, so it rebuilds automatically when the trip is upserted.
+    await showTripEntrySheet(context, date: trip.date, existingTrip: trip);
   }
 }
 

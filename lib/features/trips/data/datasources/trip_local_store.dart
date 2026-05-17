@@ -4,7 +4,8 @@ import '../../../../core/database/persistence_service.dart';
 import '../models/trip_entry_model.dart';
 
 // Storage key — bump suffix on breaking schema changes to auto-reseed.
-const _kKey = 'trips_v1';
+// v2: reduced to 3 members, empty seed for cleaner debugging.
+const _kKey = 'trips_v2';
 
 /// Canonical member list for the MVP carpool group.
 ///
@@ -13,15 +14,13 @@ const _kKey = 'trips_v1';
 const List<MemberModel> kCanonicalMembers = [
   MemberModel(
     id: 'm001',
-    name: 'Rajesh Kumar',
-    initials: 'RK',
+    name: 'Sandeep Choudhary',
+    initials: 'SC',
     colorIndex: 0,
     isCurrentUser: true,
   ),
   MemberModel(id: 'm002', name: 'Priya Sharma', initials: 'PS', colorIndex: 1),
   MemberModel(id: 'm003', name: 'Suresh Patel', initials: 'SP', colorIndex: 2),
-  MemberModel(id: 'm004', name: 'Kavitha Nair', initials: 'KN', colorIndex: 3),
-  MemberModel(id: 'm005', name: 'Arun Singh', initials: 'AS', colorIndex: 4),
 ];
 
 /// File-backed, in-memory trip store — the single source of truth at runtime.
@@ -86,10 +85,9 @@ class TripLocalStore {
   List<TripEntry> getAll() => List.unmodifiable(_trips);
 
   /// All trips in [month]/[year], sorted by date ascending.
-  List<TripEntry> forMonth(int month, int year) => _trips
-      .where((t) => t.date.month == month && t.date.year == year)
-      .toList()
-    ..sort((a, b) => a.date.compareTo(b.date));
+  List<TripEntry> forMonth(int month, int year) =>
+      _trips.where((t) => t.date.month == month && t.date.year == year).toList()
+        ..sort((a, b) => a.date.compareTo(b.date));
 
   /// Trip on the given calendar date, or `null` if none.
   TripEntry? forDate(DateTime d) {
@@ -147,63 +145,9 @@ class TripLocalStore {
 
   // ── Seed data (fresh install only) ────────────────────────────────────────
 
-  /// Generates 10 realistic weekday carpool trips for the current month.
-  ///
-  /// Driver schedule rotates through all 5 members; expenses match the real
-  /// route: 45 km, ₹102/L fuel, 15 kmpl mileage, ₹60 daily toll, and
-  /// occasional parking / other charges.
-  static List<TripEntry> _seed() {
-    final now = DateTime.now();
-    final year = now.year;
-    final month = now.month;
-
-    // Find up to 10 weekdays in the current month.
-    final weekdays = <int>[];
-    final daysInMonth = DateTime(year, month + 1, 0).day;
-    for (var d = 1; d <= daysInMonth && weekdays.length < 10; d++) {
-      final wd = DateTime(year, month, d).weekday;
-      if (wd >= DateTime.monday && wd <= DateTime.friday) weekdays.add(d);
-    }
-
-    // Expense extras per weekday slot index.
-    const extras = [
-      (toll: 60.0, parking: 0.0, other: 0.0),
-      (toll: 60.0, parking: 20.0, other: 0.0),
-      (toll: 60.0, parking: 0.0, other: 30.0),
-      (toll: 60.0, parking: 0.0, other: 0.0),
-      (toll: 60.0, parking: 20.0, other: 0.0),
-      (toll: 60.0, parking: 0.0, other: 0.0),
-      (toll: 60.0, parking: 0.0, other: 0.0),
-      (toll: 60.0, parking: 20.0, other: 50.0),
-      (toll: 60.0, parking: 0.0, other: 0.0),
-      (toll: 60.0, parking: 0.0, other: 0.0),
-    ];
-
-    return List.generate(weekdays.length, (i) {
-      final day = weekdays[i];
-      final date = DateTime(year, month, day);
-      final driver = kCanonicalMembers[i % kCanonicalMembers.length];
-      final ex = extras[i % extras.length];
-
-      return TripEntry(
-        id: 'trip_${year}_${month.toString().padLeft(2, '0')}'
-            '_${day.toString().padLeft(2, '0')}',
-        date: date,
-        driver: driver,
-        attendees: List.from(kCanonicalMembers),
-        expenses: ExpenseBreakdown(
-          distanceKm: 45.0,
-          fuelRatePerLitre: 102.0,
-          mileageKmpl: 15.0,
-          tollExpense: ex.toll,
-          parkingExpense: ex.parking,
-          otherExpense: ex.other,
-        ),
-        status: date.isAfter(now) ? TripStatus.active : TripStatus.completed,
-        createdAt: date.subtract(const Duration(hours: 2)),
-      );
-    });
-  }
+  /// Returns an empty list — fresh installs start with no trips so the
+  /// CRUD flow is easy to verify without noise.
+  static List<TripEntry> _seed() => [];
 }
 
 // ── Riverpod provider ─────────────────────────────────────────────────────────

@@ -11,10 +11,18 @@ class TripMockDatasource {
   // ── Members ─────────────────────────────────────────────────────────────────
 
   static const List<MemberModel> members = [
-    MemberModel(id: 'm001', name: 'Rajesh Kumar', initials: 'RK', colorIndex: 0, isCurrentUser: true),
-    MemberModel(id: 'm002', name: 'Priya Sharma', initials: 'PS', colorIndex: 1),
-    MemberModel(id: 'm003', name: 'Suresh Patel', initials: 'SP', colorIndex: 2),
-    MemberModel(id: 'm004', name: 'Kavitha Nair', initials: 'KN', colorIndex: 3),
+    MemberModel(
+        id: 'm001',
+        name: 'Sandeep Choudhary',
+        initials: 'SC',
+        colorIndex: 0,
+        isCurrentUser: true),
+    MemberModel(
+        id: 'm002', name: 'Priya Sharma', initials: 'PS', colorIndex: 1),
+    MemberModel(
+        id: 'm003', name: 'Suresh Patel', initials: 'SP', colorIndex: 2),
+    MemberModel(
+        id: 'm004', name: 'Kavitha Nair', initials: 'KN', colorIndex: 3),
     MemberModel(id: 'm005', name: 'Arun Singh', initials: 'AS', colorIndex: 4),
   ];
 

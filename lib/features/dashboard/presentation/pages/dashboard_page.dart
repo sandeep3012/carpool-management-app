@@ -33,7 +33,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
   }
 
   void _onViewReport() {
-    context.go('/home/reports');
+    // Reports tab not yet available — surface a friendly message
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Reports — Coming soon')),
+    );
   }
 
   void _onUpcomingDriveTap(String tripId) {

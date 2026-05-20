@@ -1,3 +1,18 @@
+/// Three visual states for the settlement card on the dashboard.
+///
+/// Derived from [PendingSettlement.cardState] — the card widget only
+/// needs to switch on this enum, no string comparisons in UI code.
+enum SettlementCardState {
+  /// Outstanding amount > 0, no payments completed yet.
+  pending,
+
+  /// Some payments settled, some still outstanding.
+  inProgress,
+
+  /// All payments completed — nothing left to action.
+  settled,
+}
+
 /// Dashboard summary data model — plain Dart, no codegen required
 class DashboardSummary {
   final double totalExpense;
@@ -151,8 +166,18 @@ class PendingSettlement {
   final String id;
   final int month;
   final int year;
+
+  /// Sum of outstanding (pending + confirmed) payment amounts.
+  /// Zero when fully settled.
   final double totalAmount;
+
+  /// Number of payments still requiring action (pending or payer-confirmed).
   final int transactionCount;
+
+  /// Number of fully completed payments this month.
+  final int completedCount;
+
+  /// Overall settlement status string — matches [SettlementStatusConst].
   final String status;
 
   const PendingSettlement({
@@ -161,8 +186,16 @@ class PendingSettlement {
     required this.year,
     required this.totalAmount,
     required this.transactionCount,
+    required this.completedCount,
     required this.status,
   });
+
+  /// Derived display state for the dashboard card.
+  SettlementCardState get cardState {
+    if (status == 'completed') return SettlementCardState.settled;
+    if (completedCount > 0) return SettlementCardState.inProgress;
+    return SettlementCardState.pending;
+  }
 
   PendingSettlement copyWith({
     String? id,
@@ -170,6 +203,7 @@ class PendingSettlement {
     int? year,
     double? totalAmount,
     int? transactionCount,
+    int? completedCount,
     String? status,
   }) {
     return PendingSettlement(
@@ -178,6 +212,7 @@ class PendingSettlement {
       year: year ?? this.year,
       totalAmount: totalAmount ?? this.totalAmount,
       transactionCount: transactionCount ?? this.transactionCount,
+      completedCount: completedCount ?? this.completedCount,
       status: status ?? this.status,
     );
   }

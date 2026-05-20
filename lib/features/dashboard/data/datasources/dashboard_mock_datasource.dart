@@ -110,6 +110,7 @@ class DashboardMockDatasource {
       year: 2026,
       totalAmount: 4200.0,
       transactionCount: 4,
+      completedCount: 0,
       status: 'draft',
     );
   }
